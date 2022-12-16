@@ -635,7 +635,7 @@ async def start_vk():
             if not is_added(peerid) and int(id) == admin_id:
               req = f"INSERT INTO added_groups_vk VALUES ({peerid}, 1, {id}, {msg.get('date')})"
               await send_m(peerid,"Беседа активирована")
-            else:
+            elif not is_added(peerid):
               req = f"INSERT INTO added_groups_vk VALUES ({peerid}, 0, {id}, {msg.get('date')})"
             cursor.execute(req)
             conn.commit()
@@ -754,7 +754,7 @@ async def start_twitter():
         lid = result_twitter[userid]['last_post_id']
         twlink = result_twitter[userid]['link']
         lastid_post_bef = 0 if lid is None or lid == '' else int(lid)
-        r = await last_post_twitter(sessiontw, userid, twlink) # тут появляется ошибка
+        r = await last_post_twitter(sessiontw, userid, twlink)
         if r is False: continue
         if r == []: continue
         last_post = r[0]
