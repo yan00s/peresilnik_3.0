@@ -637,6 +637,8 @@ async def start_vk():
               await send_m(peerid,"Беседа активирована")
             elif not is_added(peerid):
               req = f"INSERT INTO added_groups_vk VALUES ({peerid}, 0, {id}, {msg.get('date')})"
+            else:
+              continue
             cursor.execute(req)
             conn.commit()
             continue
