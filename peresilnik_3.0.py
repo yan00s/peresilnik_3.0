@@ -11,7 +11,7 @@ from vk_api.bot_longpoll import VkBotEventType
 from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.functions.messages import CheckChatInviteRequest
 from telethon.errors import UserAlreadyParticipantError
-from dotenv import load_dotenv,find_dotenv#,set_key
+from dotenv import load_dotenv,find_dotenv
 from os import environ
 from fake_headers import Headers
 import aiohttp
@@ -118,7 +118,7 @@ async def add_twitt(link,peerid_vk):
     async with aiohttp.ClientSession(headers=headers) as session:
       req = await session.post('https://tweeterid.com/ajax.php',data=data)
       peerid = await req.text()
-    if not peerid == 'error':
+    if not peerid == 'error' or not peerid == 'error-co':
       req = f"INSERT INTO links VALUES ('twitt','{link}','{peerid}','{peerid_vk}', 0)"
       cursor.execute(req)
       text = "Добавлено в базу данных"
@@ -324,6 +324,36 @@ def id_filter(chats):
     chatid_for_client.append(int(f'-100{chat}'))
   return chatid_for_client
 
+
+def input_links(links, message):
+  need_add = 0
+  message_l = list(message)
+  for link in links:
+    at = int(link.offset)
+    to = int(link.length) + at
+    url = str(link.url)
+    if to == 0:continue
+    word = message[at:to]
+    add_link = list(f' ({url}) ')
+    new_word = list(f'{word}') + add_link
+    message_l = message_l[:at+need_add] + new_word + message_l[to+need_add:]
+    need_add += len(add_link)
+  new_msg = ''.join(message_l)
+  return new_msg
+
+def get_links(entities):
+  links = []
+  if entities:
+    for link in entities:
+      check_atrb = hasattr(link, 'offset') and hasattr(link, 'length') and hasattr(link, 'url')
+      if not check_atrb:
+          continue
+      else:
+          links.append(link)
+  return links
+
+
+
 async def tg_start():
   while True:
     try:
@@ -347,20 +377,17 @@ async def tg_start():
             owner_id = attachment[0]["owner_id"]
             item_id = attachment[0]["id"]
             attachment = f"photo{owner_id}_{item_id}"
-          links_raw = event.message.entities
-          links_text = ''
-          if links_raw:
-            links = []
-            for link in links_raw:
-              if hasattr(link, 'url'):
-                links.append(link.url)
-            links_t = '\n'.join(links)
-            links_text = f'\n ссылки:\n{links_t}' if len(links_t) > 0 else ''
+            
+          text_tg = str(event.message.message)
+          links = get_links(event.message.entities)
+          if len(links) > 0:
+            text_tg = input_links(links, text_tg)
+
           perids_groups = get_peerids_from_channels(user)
           for perid_group in perids_groups:
             t0 = get_notice_from_channel(user,perid_group)
             t0 = '\n'+','.join(map(lambda x:'@id' + x,t0)) if not t0 == [] else ''
-            text = f"telegram {user}{t0}\n{str(event.message.message)}{links_text}"
+            text = f"telegram {user}{t0}\n{text_tg}"
             if text == f'telegram {user}\n' and attachment is None:
               text = f'{text}*(опрос/видео/статья)*'
             await send_m(perid_group,text,attachment = attachment)
@@ -707,8 +734,8 @@ async def last_post_twitter(session:aiohttp.ClientSession, userId, link):
       continue
     except Exception as e:
       await asyncio.sleep(7)
-      # t = f'[{link}] ошибка с получением последнего поста'
-      # logging.exception(t)
+      t = f'[{link}] ошибка с получением последнего поста'
+      logging.exception(t)
 
 async def download_photo_tw(session:aiohttp.ClientSession, url_photo, name_photo):
   trying = 0
